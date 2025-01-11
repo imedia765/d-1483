@@ -14,11 +14,27 @@ const log = {
   },
   error: (message: string, error?: any) => {
     console.error('\x1b[31m%s\x1b[0m', '✗ ERROR:', message);
-    if (error) console.error(error);
+    if (error) {
+      console.error('\x1b[31m%s\x1b[0m', '  Details:');
+      if (error.status) console.error('\x1b[31m%s\x1b[0m', `  Status: ${error.status}`);
+      if (error.message) console.error('\x1b[31m%s\x1b[0m', `  Message: ${error.message}`);
+      if (error.response?.data) {
+        console.error('\x1b[31m%s\x1b[0m', '  Response Data:');
+        console.error(JSON.stringify(error.response.data, null, 2));
+      }
+      if (error.stack) {
+        console.error('\x1b[31m%s\x1b[0m', '  Stack Trace:');
+        console.error(error.stack);
+      }
+    }
   },
   info: (message: string, data?: any) => {
     console.log('\x1b[36m%s\x1b[0m', 'ℹ INFO:', message);
     if (data) console.log(JSON.stringify(data, null, 2));
+  },
+  sql: (query: string, params?: any) => {
+    console.log('\x1b[35m%s\x1b[0m', '🗄 SQL:', query);
+    if (params) console.log('\x1b[35m%s\x1b[0m', '  Params:', JSON.stringify(params, null, 2));
   }
 };
 
@@ -57,16 +73,26 @@ serve(async (req) => {
 
     // Helper function to get repository details
     const getRepoDetails = async (repoId: string) => {
+      const query = `SELECT * FROM repositories WHERE id = $1`;
+      log.sql(query, [repoId]);
+      
       const { data: repo, error: repoError } = await supabaseClient
         .from('repositories')
         .select('*')
         .eq('id', repoId)
         .single();
 
-      if (repoError) throw repoError;
-      if (!repo) throw new Error(`Repository not found: ${repoId}`);
+      if (repoError) {
+        log.error('Database error when fetching repository:', repoError);
+        throw repoError;
+      }
+      if (!repo) {
+        log.error('Repository not found:', { repoId });
+        throw new Error(`Repository not found: ${repoId}`);
+      }
       
       const { owner, repo: repoName } = extractRepoInfo(repo.url);
+      log.info('Repository details:', { owner, repoName, url: repo.url });
       return { repo, owner, repoName };
     };
 
@@ -131,6 +157,23 @@ serve(async (req) => {
       });
 
       log.success('Got commit:', commit.sha);
+
+      const updateQuery = `
+        UPDATE repositories 
+        SET last_commit = $1, 
+            last_commit_date = $2, 
+            last_sync = $3, 
+            status = $4 
+        WHERE id = $5
+      `;
+      
+      log.sql(updateQuery, [
+        commit.sha,
+        commit.commit.author?.date,
+        new Date().toISOString(),
+        'synced',
+        sourceRepoId
+      ]);
 
       await supabaseClient
         .from('repositories')
@@ -241,12 +284,23 @@ serve(async (req) => {
 
   } catch (error) {
     log.error('Error in git-operations function:', error);
+    
+    // Enhanced error response
+    const errorResponse = {
+      success: false,
+      error: error.message,
+      details: {
+        status: error.status,
+        name: error.name,
+        message: error.message,
+        response: error.response?.data,
+        documentation_url: error.response?.data?.documentation_url,
+        stack: error.stack
+      }
+    };
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message,
-        details: error.response?.data || error
-      }),
+      JSON.stringify(errorResponse),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
