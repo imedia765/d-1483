@@ -1,47 +1,46 @@
-@import url('https://rsms.me/inter/inter.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 152 55% 12%;
-    --primary-foreground: 152 55% 98%;
-    --secondary: 152 75% 52%;
-    --secondary-foreground: 152 75% 98%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 152 75% 52%;
-    --accent-foreground: 152 75% 98%;
-    --destructive: 0 84.2% 60.2%;
+    --background: 228 24% 14%;
+    --foreground: 210 40% 98%;
+
+    --card: 228 24% 14%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 228 24% 14%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 252 82% 74%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 252 82% 74%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 152 75% 52%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 252 82% 74%;
+
     --radius: 0.5rem;
-  }
-
-  body {
-    @apply bg-forest text-white antialiased;
-    background-image: radial-gradient(circle at 50% 0%, rgba(100, 255, 218, 0.05), transparent 70%);
-    background-size: 100% 100%;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
-
-  ::selection {
-    @apply bg-mint text-forest;
   }
 }
 
-.glass-nav {
-  background: rgba(10, 31, 47, 0.8);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(100, 255, 218, 0.1);
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
