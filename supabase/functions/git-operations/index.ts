@@ -7,7 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Utility function for consistent logging
 const log = {
   success: (message: string, data?: any) => {
     console.log('\x1b[32m%s\x1b[0m', '✓ SUCCESS:', message);
@@ -71,9 +70,19 @@ serve(async (req) => {
       return { repo, owner, repoName };
     };
 
+    // Helper function to get the default branch
+    const getDefaultBranch = async (owner: string, repo: string) => {
+      const { data: repoInfo } = await octokit.rest.repos.get({
+        owner,
+        repo,
+      });
+      return repoInfo.default_branch;
+    };
+
     // Helper function to ensure branch exists
-    const ensureBranchExists = async (owner: string, repo: string, branch: string, sourceSha?: string) => {
+    const ensureBranchExists = async (owner: string, repo: string, branch: string, sourceSha: string) => {
       try {
+        // Try to get the branch
         const { data: branchData } = await octokit.rest.repos.getBranch({
           owner,
           repo,
@@ -82,21 +91,26 @@ serve(async (req) => {
         log.success(`Branch exists: ${branch}`, branchData);
         return branchData;
       } catch (error) {
-        if (error.status === 404 && sourceSha) {
-          log.info(`Creating branch ${branch} with SHA ${sourceSha}`);
-          await octokit.rest.git.createRef({
-            owner,
-            repo,
-            ref: `refs/heads/${branch}`,
-            sha: sourceSha,
-          });
-          const { data } = await octokit.rest.repos.getBranch({
-            owner,
-            repo,
-            branch,
-          });
-          log.success(`Created new branch: ${branch}`, data);
-          return data;
+        if (error.status === 404) {
+          // Branch doesn't exist, create it
+          log.info(`Creating branch ${branch} from ${sourceSha}`);
+          try {
+            await octokit.rest.git.createRef({
+              owner,
+              repo,
+              ref: `refs/heads/${branch}`,
+              sha: sourceSha,
+            });
+            log.success(`Created branch: ${branch}`);
+            return await octokit.rest.repos.getBranch({
+              owner,
+              repo,
+              branch,
+            });
+          } catch (createError) {
+            log.error(`Failed to create branch: ${branch}`, createError);
+            throw createError;
+          }
         }
         throw error;
       }
@@ -108,15 +122,12 @@ serve(async (req) => {
       const { repo, owner, repoName } = await getRepoDetails(sourceRepoId);
       log.success('Found repository:', repo.url);
 
-      const { data: repoInfo } = await octokit.rest.repos.get({
-        owner,
-        repo: repoName,
-      });
-
+      const defaultBranch = await getDefaultBranch(owner, repoName);
+      
       const { data: commit } = await octokit.rest.repos.getCommit({
         owner,
         repo: repoName,
-        ref: repoInfo.default_branch,
+        ref: defaultBranch,
       });
 
       log.success('Got commit:', commit.sha);
@@ -149,23 +160,24 @@ serve(async (req) => {
       });
 
       // Get source repository info and latest commit
-      const { data: sourceRepoInfo } = await octokit.rest.repos.get({
-        owner: sourceDetails.owner,
-        repo: sourceDetails.repoName
-      });
+      const sourceDefaultBranch = await getDefaultBranch(sourceDetails.owner, sourceDetails.repoName);
+      log.success('Source branch found:', sourceDefaultBranch);
+
+      const targetDefaultBranch = await getDefaultBranch(targetDetails.owner, targetDetails.repoName);
+      log.success('Target branch found:', targetDefaultBranch);
 
       // Get source commit
       const { data: sourceCommit } = await octokit.rest.repos.getCommit({
         owner: sourceDetails.owner,
         repo: sourceDetails.repoName,
-        ref: sourceRepoInfo.default_branch
+        ref: sourceDefaultBranch
       });
 
       // Ensure target branch exists
       await ensureBranchExists(
         targetDetails.owner,
         targetDetails.repoName,
-        sourceRepoInfo.default_branch,
+        targetDefaultBranch,
         sourceCommit.sha
       );
 
@@ -175,7 +187,7 @@ serve(async (req) => {
           await octokit.rest.git.updateRef({
             owner: targetDetails.owner,
             repo: targetDetails.repoName,
-            ref: `heads/${sourceRepoInfo.default_branch}`,
+            ref: `heads/${targetDefaultBranch}`,
             sha: sourceCommit.sha,
             force: true
           });
@@ -185,7 +197,7 @@ serve(async (req) => {
           await octokit.rest.repos.merge({
             owner: targetDetails.owner,
             repo: targetDetails.repoName,
-            base: sourceRepoInfo.default_branch,
+            base: targetDefaultBranch,
             head: sourceCommit.sha,
             commit_message: `Merge from ${sourceDetails.repo.nickname || sourceDetails.repo.url} using ${pushType} strategy`
           });
