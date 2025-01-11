@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { GitBranch, GitCommit, Star, History, Tag, AlertTriangle, Trash2, Edit2, RefreshCw } from "lucide-react";
+import { GitBranch, GitCommit, Star, History, Tag, AlertTriangle, Trash2, Edit2, RefreshCw, Terminal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,12 @@ interface Repository {
   last_commit_date?: string;
 }
 
+interface ConsoleLog {
+  message: string;
+  type: 'error' | 'success' | 'info';
+  timestamp: string;
+}
+
 export function RepoManager() {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [repoUrl, setRepoUrl] = useState("");
@@ -45,6 +52,17 @@ export function RepoManager() {
   const [repoToDelete, setRepoToDelete] = useState<string | null>(null);
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null);
   const { toast } = useToast();
+
+  const [consoleLogs, setConsoleLogs] = useState<ConsoleLog[]>([]);
+  const [showConsole, setShowConsole] = useState(false);
+
+  const addConsoleLog = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    setConsoleLogs(prev => [...prev, {
+      message,
+      type,
+      timestamp: new Date().toLocaleTimeString()
+    }]);
+  };
 
   // Fetch repositories from Supabase
   useEffect(() => {
@@ -235,6 +253,7 @@ export function RepoManager() {
 
     try {
       setIsLoading(true);
+      addConsoleLog(`Starting ${pushType} push operation...`, 'info');
       
       const { data, error } = await supabase.functions.invoke('git-operations', {
         body: {
@@ -245,11 +264,15 @@ export function RepoManager() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        addConsoleLog(`Error: ${error.message}`, 'error');
+        throw error;
+      }
 
       const sourceRepo = repositories.find(r => r.id === selectedSourceRepo);
       const actionMessage = `Pushed from ${sourceRepo?.nickname || sourceRepo?.url} to ${targetRepo?.nickname || targetRepo?.url} at ${new Date().toLocaleTimeString()}`;
       setLastAction(actionMessage);
+      addConsoleLog(actionMessage, 'success');
       
       await fetchRepositories(); // Refresh repositories list
       
@@ -259,6 +282,7 @@ export function RepoManager() {
       });
     } catch (error) {
       console.error('Error during push operation:', error);
+      addConsoleLog(`Push operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
       toast({
         title: "Error",
         description: "Failed to complete push operation",
@@ -519,6 +543,43 @@ export function RepoManager() {
           </div>
         </div>
       )}
+
+      <div className="pt-4 border-t border-border/50">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <Terminal className="h-5 w-5" />
+            Console Output
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowConsole(!showConsole)}
+          >
+            {showConsole ? 'Hide Console' : 'Show Console'}
+          </Button>
+        </div>
+        
+        {showConsole && (
+          <ScrollArea className="h-[300px] w-full rounded-md border bg-black/90 p-4 font-mono text-sm">
+            {consoleLogs.map((log, index) => (
+              <div
+                key={index}
+                className={`mb-2 ${
+                  log.type === 'error' ? 'text-red-400' :
+                  log.type === 'success' ? 'text-green-400' :
+                  'text-blue-400'
+                }`}
+              >
+                <span className="text-gray-500">[{log.timestamp}]</span>{' '}
+                {log.message}
+              </div>
+            ))}
+            {consoleLogs.length === 0 && (
+              <div className="text-gray-500">No console output available</div>
+            )}
+          </ScrollArea>
+        )}
+      </div>
 
       <AlertDialog open={showMasterWarning} onOpenChange={setShowMasterWarning}>
         <AlertDialogContent>
