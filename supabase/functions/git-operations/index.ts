@@ -122,12 +122,20 @@ serve(async (req) => {
           defaultBranch: sourceRepoInfo.default_branch
         });
 
-        // Get the latest commit from source
-        const { data: sourceBranch } = await octokit.rest.repos.getBranch({
-          owner: sourceOwner,
-          repo: sourceRepoName,
-          branch: sourceRepoInfo.default_branch,
-        });
+        // Get source branch information and latest commit
+        let sourceBranch;
+        try {
+          const { data } = await octokit.rest.repos.getBranch({
+            owner: sourceOwner,
+            repo: sourceRepoName,
+            branch: sourceRepoInfo.default_branch,
+          });
+          sourceBranch = data;
+          console.log('Source branch found:', sourceBranch.name);
+        } catch (error) {
+          console.error('Error getting source branch:', error);
+          throw new Error(`Source branch does not exist: ${error.message}`);
+        }
 
         // Get target repository info
         const { data: targetRepoInfo } = await octokit.rest.repos.get({
@@ -139,29 +147,44 @@ serve(async (req) => {
           defaultBranch: targetRepoInfo.default_branch
         });
 
-        // First, try to get the target branch reference
-        let targetRef;
+        // Check if target branch exists
+        let targetBranch;
         try {
-          const { data: ref } = await octokit.rest.git.getRef({
+          const { data } = await octokit.rest.repos.getBranch({
             owner: targetOwner,
             repo: targetRepoName,
-            ref: `heads/${targetRepoInfo.default_branch}`
+            branch: targetRepoInfo.default_branch,
           });
-          targetRef = ref;
-          console.log('Found existing target branch:', targetRef);
+          targetBranch = data;
+          console.log('Target branch found:', targetBranch.name);
         } catch (error) {
           if (error.status === 404) {
             console.log('Target branch does not exist, creating it...');
             try {
-              // Create the branch with the source commit
-              const { data: newRef } = await octokit.rest.git.createRef({
+              // Get the default branch's latest commit SHA
+              const { data: defaultBranch } = await octokit.rest.repos.getBranch({
+                owner: targetOwner,
+                repo: targetRepoName,
+                branch: 'main', // Try main first
+              });
+              
+              // Create the new branch from the default branch
+              await octokit.rest.git.createRef({
                 owner: targetOwner,
                 repo: targetRepoName,
                 ref: `refs/heads/${targetRepoInfo.default_branch}`,
-                sha: sourceBranch.commit.sha
+                sha: defaultBranch.commit.sha
               });
-              targetRef = newRef;
-              console.log('Created new target branch:', targetRef);
+              
+              console.log('Created new target branch');
+              
+              // Get the newly created branch
+              const { data } = await octokit.rest.repos.getBranch({
+                owner: targetOwner,
+                repo: targetRepoName,
+                branch: targetRepoInfo.default_branch,
+              });
+              targetBranch = data;
             } catch (createError) {
               console.error('Error creating target branch:', createError);
               throw new Error(`Failed to create target branch: ${createError.message}`);
@@ -221,7 +244,7 @@ serve(async (req) => {
           JSON.stringify({ 
             success: true, 
             message: `Push operation completed successfully`,
-            mergeResult: mergeResult.data
+            mergeResult: mergeResult
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
