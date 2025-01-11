@@ -23,8 +23,6 @@ const log = {
   }
 };
 
-log.info('Git Operations Function Started');
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -49,43 +47,76 @@ serve(async (req) => {
       auth: githubToken
     });
 
+    // Helper function to extract owner and repo name from GitHub URL
+    const extractRepoInfo = (url: string) => {
+      const match = url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
+      if (!match) {
+        throw new Error(`Invalid GitHub URL format: ${url}`);
+      }
+      return { owner: match[1], repo: match[2] };
+    };
+
+    // Helper function to get repository details
+    const getRepoDetails = async (repoId: string) => {
+      const { data: repo, error: repoError } = await supabaseClient
+        .from('repositories')
+        .select('*')
+        .eq('id', repoId)
+        .single();
+
+      if (repoError) throw repoError;
+      if (!repo) throw new Error(`Repository not found: ${repoId}`);
+      
+      const { owner, repo: repoName } = extractRepoInfo(repo.url);
+      return { repo, owner, repoName };
+    };
+
+    // Helper function to ensure branch exists
+    const ensureBranchExists = async (owner: string, repo: string, branch: string, sourceSha?: string) => {
+      try {
+        const { data: branchData } = await octokit.rest.repos.getBranch({
+          owner,
+          repo,
+          branch,
+        });
+        log.success(`Branch exists: ${branch}`, branchData);
+        return branchData;
+      } catch (error) {
+        if (error.status === 404 && sourceSha) {
+          log.info(`Creating branch ${branch} with SHA ${sourceSha}`);
+          await octokit.rest.git.createRef({
+            owner,
+            repo,
+            ref: `refs/heads/${branch}`,
+            sha: sourceSha,
+          });
+          const { data } = await octokit.rest.repos.getBranch({
+            owner,
+            repo,
+            branch,
+          });
+          log.success(`Created new branch: ${branch}`, data);
+          return data;
+        }
+        throw error;
+      }
+    };
+
     if (type === 'getLastCommit') {
       log.info('Getting last commit for repo:', sourceRepoId);
       
-      const { data: repo, error: repoError } = await supabaseClient
-        .from('repositories')
-        .select('url')
-        .eq('id', sourceRepoId)
-        .single();
-
-      if (repoError) {
-        log.error('Database error:', repoError);
-        throw repoError;
-      }
-      if (!repo) {
-        log.error('Repository not found:', sourceRepoId);
-        throw new Error('Repository not found');
-      }
-
+      const { repo, owner, repoName } = await getRepoDetails(sourceRepoId);
       log.success('Found repository:', repo.url);
 
-      const [, owner, repoName] = repo.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/) || [];
-      if (!owner || !repoName) {
-        log.error('Invalid repository URL format:', repo.url);
-        throw new Error('Invalid repository URL format');
-      }
-
-      log.info('Fetching commit for:', { owner, repoName });
-      
       const { data: repoInfo } = await octokit.rest.repos.get({
         owner,
-        repo: repoName
+        repo: repoName,
       });
 
       const { data: commit } = await octokit.rest.repos.getCommit({
         owner,
         repo: repoName,
-        ref: repoInfo.default_branch
+        ref: repoInfo.default_branch,
       });
 
       log.success('Got commit:', commit.sha);
@@ -109,153 +140,56 @@ serve(async (req) => {
     if (type === 'push' && targetRepoId) {
       log.info('Starting push operation');
       
-      const { data: repos, error: reposError } = await supabaseClient
-        .from('repositories')
-        .select('*')
-        .in('id', [sourceRepoId, targetRepoId]);
-
-      if (reposError) {
-        log.error('Database error:', reposError);
-        throw reposError;
-      }
-
-      const sourceRepo = repos.find(r => r.id === sourceRepoId);
-      const targetRepo = repos.find(r => r.id === targetRepoId);
-
-      if (!sourceRepo || !targetRepo) {
-        log.error('Repository not found:', { sourceRepoId, targetRepoId });
-        throw new Error('Source or target repository not found');
-      }
+      const sourceDetails = await getRepoDetails(sourceRepoId);
+      const targetDetails = await getRepoDetails(targetRepoId);
 
       log.info('Processing repositories:', {
-        source: sourceRepo.url,
-        target: targetRepo.url
+        source: sourceDetails.repo.url,
+        target: targetDetails.repo.url
       });
 
-      // Extract owner and repo name from URLs
-      const [, sourceOwner, sourceRepoName] = sourceRepo.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/) || [];
-      const [, targetOwner, targetRepoName] = targetRepo.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/) || [];
+      // Get source repository info and latest commit
+      const { data: sourceRepoInfo } = await octokit.rest.repos.get({
+        owner: sourceDetails.owner,
+        repo: sourceDetails.repoName
+      });
 
-      if (!sourceOwner || !sourceRepoName || !targetOwner || !targetRepoName) {
-        log.error('Invalid repository URL format:', { sourceRepo: sourceRepo.url, targetRepo: targetRepo.url });
-        throw new Error('Invalid repository URL format');
-      }
+      // Get source commit
+      const { data: sourceCommit } = await octokit.rest.repos.getCommit({
+        owner: sourceDetails.owner,
+        repo: sourceDetails.repoName,
+        ref: sourceRepoInfo.default_branch
+      });
+
+      // Ensure target branch exists
+      await ensureBranchExists(
+        targetDetails.owner,
+        targetDetails.repoName,
+        sourceRepoInfo.default_branch,
+        sourceCommit.sha
+      );
 
       try {
-        // Get source repository info
-        const { data: sourceRepoInfo } = await octokit.rest.repos.get({
-          owner: sourceOwner,
-          repo: sourceRepoName
-        });
-
-        log.info('Source repo info:', {
-          defaultBranch: sourceRepoInfo.default_branch
-        });
-
-        // Get source branch information and latest commit
-        let sourceBranch;
-        try {
-          const { data } = await octokit.rest.repos.getBranch({
-            owner: sourceOwner,
-            repo: sourceRepoName,
-            branch: sourceRepoInfo.default_branch,
-          });
-          sourceBranch = data;
-          log.success('Source branch found:', sourceBranch.name);
-        } catch (error) {
-          log.error('Error getting source branch:', error);
-          throw new Error(`Source branch does not exist: ${error.message}`);
-        }
-
-        // Get target repository info
-        const { data: targetRepoInfo } = await octokit.rest.repos.get({
-          owner: targetOwner,
-          repo: targetRepoName
-        });
-
-        log.info('Target repo info:', {
-          defaultBranch: targetRepoInfo.default_branch
-        });
-
-        // Check if target branch exists
-        let targetBranch;
-        try {
-          const { data } = await octokit.rest.repos.getBranch({
-            owner: targetOwner,
-            repo: targetRepoName,
-            branch: targetRepoInfo.default_branch,
-          });
-          targetBranch = data;
-          log.success('Target branch found:', targetBranch.name);
-        } catch (error) {
-          if (error.status === 404) {
-            log.info('Target branch does not exist, creating it...');
-            try {
-              // Get the default branch's latest commit SHA
-              const { data: defaultBranch } = await octokit.rest.repos.getBranch({
-                owner: targetOwner,
-                repo: targetRepoName,
-                branch: 'main', // Try main first
-              });
-              
-              // Create the new branch from the default branch
-              await octokit.rest.git.createRef({
-                owner: targetOwner,
-                repo: targetRepoName,
-                ref: `refs/heads/${targetRepoInfo.default_branch}`,
-                sha: defaultBranch.commit.sha
-              });
-              
-              log.success('Created new target branch');
-              
-              // Get the newly created branch
-              const { data } = await octokit.rest.repos.getBranch({
-                owner: targetOwner,
-                repo: targetRepoName,
-                branch: targetRepoInfo.default_branch,
-              });
-              targetBranch = data;
-            } catch (createError) {
-              log.error('Error creating target branch:', createError);
-              throw new Error(`Failed to create target branch: ${createError.message}`);
-            }
-          } else {
-            log.error('Error getting target branch:', error);
-            throw error;
-          }
-        }
-
-        let mergeResult;
         if (pushType === 'force' || pushType === 'force-with-lease') {
           log.info('Performing force push...');
-          try {
-            mergeResult = await octokit.rest.git.updateRef({
-              owner: targetOwner,
-              repo: targetRepoName,
-              ref: `heads/${targetRepoInfo.default_branch}`,
-              sha: sourceBranch.commit.sha,
-              force: true
-            });
-            log.success('Force push successful:', mergeResult);
-          } catch (error) {
-            log.error('Force push failed:', error);
-            throw new Error(`Force push failed: ${error.message}`);
-          }
+          await octokit.rest.git.updateRef({
+            owner: targetDetails.owner,
+            repo: targetDetails.repoName,
+            ref: `heads/${sourceRepoInfo.default_branch}`,
+            sha: sourceCommit.sha,
+            force: true
+          });
+          log.success('Force push completed');
         } else {
           log.info('Performing regular merge...');
-          try {
-            mergeResult = await octokit.rest.repos.merge({
-              owner: targetOwner,
-              repo: targetRepoName,
-              base: targetRepoInfo.default_branch,
-              head: sourceBranch.commit.sha,
-              commit_message: `Merge from ${sourceRepo.nickname || sourceRepo.url} using ${pushType} strategy`
-            });
-            log.success('Regular merge successful:', mergeResult);
-          } catch (error) {
-            log.error('Regular merge failed:', error);
-            throw new Error(`Regular merge failed: ${error.message}`);
-          }
+          await octokit.rest.repos.merge({
+            owner: targetDetails.owner,
+            repo: targetDetails.repoName,
+            base: sourceRepoInfo.default_branch,
+            head: sourceCommit.sha,
+            commit_message: `Merge from ${sourceDetails.repo.nickname || sourceDetails.repo.url} using ${pushType} strategy`
+          });
+          log.success('Regular merge completed');
         }
 
         // Update repositories status
@@ -265,34 +199,22 @@ serve(async (req) => {
           .update({ 
             last_sync: timestamp,
             status: 'synced',
-            last_commit: sourceBranch.commit.sha,
-            last_commit_date: new Date().toISOString()
+            last_commit: sourceCommit.sha,
+            last_commit_date: timestamp
           })
           .in('id', [sourceRepoId, targetRepoId]);
-
-        log.success('Push operation completed successfully');
 
         return new Response(
           JSON.stringify({ 
             success: true, 
-            message: `Push operation completed successfully`,
-            mergeResult: mergeResult
+            message: `Push operation completed successfully using ${pushType} strategy`,
+            sha: sourceCommit.sha
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (error) {
-        log.error('Error during git operation:', error);
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: error.message,
-            details: error.response?.data || error
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500
-          }
-        );
+        log.error(`${pushType} operation failed:`, error);
+        throw error;
       }
     }
 
