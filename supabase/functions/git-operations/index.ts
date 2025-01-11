@@ -7,7 +7,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-console.log('Git Operations Function Started');
+// Utility function for consistent logging
+const log = {
+  success: (message: string, data?: any) => {
+    console.log('\x1b[32m%s\x1b[0m', '✓ SUCCESS:', message);
+    if (data) console.log(JSON.stringify(data, null, 2));
+  },
+  error: (message: string, error?: any) => {
+    console.error('\x1b[31m%s\x1b[0m', '✗ ERROR:', message);
+    if (error) console.error(error);
+  },
+  info: (message: string, data?: any) => {
+    console.log('\x1b[36m%s\x1b[0m', 'ℹ INFO:', message);
+    if (data) console.log(JSON.stringify(data, null, 2));
+  }
+};
+
+log.info('Git Operations Function Started');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -16,7 +32,7 @@ serve(async (req) => {
 
   try {
     const { type, sourceRepoId, targetRepoId, pushType } = await req.json();
-    console.log('Received operation:', { type, sourceRepoId, targetRepoId, pushType });
+    log.info('Received operation:', { type, sourceRepoId, targetRepoId, pushType });
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -25,7 +41,7 @@ serve(async (req) => {
 
     const githubToken = Deno.env.get('GITHUB_ACCESS_TOKEN');
     if (!githubToken) {
-      console.error('GitHub token not found');
+      log.error('GitHub token not found');
       throw new Error('GitHub token not configured');
     }
 
@@ -34,7 +50,7 @@ serve(async (req) => {
     });
 
     if (type === 'getLastCommit') {
-      console.log('Getting last commit for repo:', sourceRepoId);
+      log.info('Getting last commit for repo:', sourceRepoId);
       
       const { data: repo, error: repoError } = await supabaseClient
         .from('repositories')
@@ -42,15 +58,24 @@ serve(async (req) => {
         .eq('id', sourceRepoId)
         .single();
 
-      if (repoError) throw repoError;
-      if (!repo) throw new Error('Repository not found');
+      if (repoError) {
+        log.error('Database error:', repoError);
+        throw repoError;
+      }
+      if (!repo) {
+        log.error('Repository not found:', sourceRepoId);
+        throw new Error('Repository not found');
+      }
 
-      console.log('Found repository:', repo.url);
+      log.success('Found repository:', repo.url);
 
       const [, owner, repoName] = repo.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/) || [];
-      if (!owner || !repoName) throw new Error('Invalid repository URL format');
+      if (!owner || !repoName) {
+        log.error('Invalid repository URL format:', repo.url);
+        throw new Error('Invalid repository URL format');
+      }
 
-      console.log('Fetching commit for:', { owner, repoName });
+      log.info('Fetching commit for:', { owner, repoName });
       
       const { data: repoInfo } = await octokit.rest.repos.get({
         owner,
@@ -63,7 +88,7 @@ serve(async (req) => {
         ref: repoInfo.default_branch
       });
 
-      console.log('Got commit:', commit.sha);
+      log.success('Got commit:', commit.sha);
 
       await supabaseClient
         .from('repositories')
@@ -82,23 +107,27 @@ serve(async (req) => {
     }
     
     if (type === 'push' && targetRepoId) {
-      console.log('Starting push operation');
+      log.info('Starting push operation');
       
       const { data: repos, error: reposError } = await supabaseClient
         .from('repositories')
         .select('*')
         .in('id', [sourceRepoId, targetRepoId]);
 
-      if (reposError) throw reposError;
+      if (reposError) {
+        log.error('Database error:', reposError);
+        throw reposError;
+      }
 
       const sourceRepo = repos.find(r => r.id === sourceRepoId);
       const targetRepo = repos.find(r => r.id === targetRepoId);
 
       if (!sourceRepo || !targetRepo) {
+        log.error('Repository not found:', { sourceRepoId, targetRepoId });
         throw new Error('Source or target repository not found');
       }
 
-      console.log('Processing repositories:', {
+      log.info('Processing repositories:', {
         source: sourceRepo.url,
         target: targetRepo.url
       });
@@ -108,6 +137,7 @@ serve(async (req) => {
       const [, targetOwner, targetRepoName] = targetRepo.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/) || [];
 
       if (!sourceOwner || !sourceRepoName || !targetOwner || !targetRepoName) {
+        log.error('Invalid repository URL format:', { sourceRepo: sourceRepo.url, targetRepo: targetRepo.url });
         throw new Error('Invalid repository URL format');
       }
 
@@ -118,7 +148,7 @@ serve(async (req) => {
           repo: sourceRepoName
         });
 
-        console.log('Source repo info:', {
+        log.info('Source repo info:', {
           defaultBranch: sourceRepoInfo.default_branch
         });
 
@@ -131,9 +161,9 @@ serve(async (req) => {
             branch: sourceRepoInfo.default_branch,
           });
           sourceBranch = data;
-          console.log('Source branch found:', sourceBranch.name);
+          log.success('Source branch found:', sourceBranch.name);
         } catch (error) {
-          console.error('Error getting source branch:', error);
+          log.error('Error getting source branch:', error);
           throw new Error(`Source branch does not exist: ${error.message}`);
         }
 
@@ -143,7 +173,7 @@ serve(async (req) => {
           repo: targetRepoName
         });
 
-        console.log('Target repo info:', {
+        log.info('Target repo info:', {
           defaultBranch: targetRepoInfo.default_branch
         });
 
@@ -156,10 +186,10 @@ serve(async (req) => {
             branch: targetRepoInfo.default_branch,
           });
           targetBranch = data;
-          console.log('Target branch found:', targetBranch.name);
+          log.success('Target branch found:', targetBranch.name);
         } catch (error) {
           if (error.status === 404) {
-            console.log('Target branch does not exist, creating it...');
+            log.info('Target branch does not exist, creating it...');
             try {
               // Get the default branch's latest commit SHA
               const { data: defaultBranch } = await octokit.rest.repos.getBranch({
@@ -176,7 +206,7 @@ serve(async (req) => {
                 sha: defaultBranch.commit.sha
               });
               
-              console.log('Created new target branch');
+              log.success('Created new target branch');
               
               // Get the newly created branch
               const { data } = await octokit.rest.repos.getBranch({
@@ -186,18 +216,18 @@ serve(async (req) => {
               });
               targetBranch = data;
             } catch (createError) {
-              console.error('Error creating target branch:', createError);
+              log.error('Error creating target branch:', createError);
               throw new Error(`Failed to create target branch: ${createError.message}`);
             }
           } else {
-            console.error('Error getting target branch:', error);
+            log.error('Error getting target branch:', error);
             throw error;
           }
         }
 
         let mergeResult;
         if (pushType === 'force' || pushType === 'force-with-lease') {
-          console.log('Performing force push...');
+          log.info('Performing force push...');
           try {
             mergeResult = await octokit.rest.git.updateRef({
               owner: targetOwner,
@@ -206,13 +236,13 @@ serve(async (req) => {
               sha: sourceBranch.commit.sha,
               force: true
             });
-            console.log('Force push successful:', mergeResult);
+            log.success('Force push successful:', mergeResult);
           } catch (error) {
-            console.error('Force push failed:', error);
+            log.error('Force push failed:', error);
             throw new Error(`Force push failed: ${error.message}`);
           }
         } else {
-          console.log('Performing regular merge...');
+          log.info('Performing regular merge...');
           try {
             mergeResult = await octokit.rest.repos.merge({
               owner: targetOwner,
@@ -221,9 +251,9 @@ serve(async (req) => {
               head: sourceBranch.commit.sha,
               commit_message: `Merge from ${sourceRepo.nickname || sourceRepo.url} using ${pushType} strategy`
             });
-            console.log('Regular merge successful:', mergeResult);
+            log.success('Regular merge successful:', mergeResult);
           } catch (error) {
-            console.error('Regular merge failed:', error);
+            log.error('Regular merge failed:', error);
             throw new Error(`Regular merge failed: ${error.message}`);
           }
         }
@@ -240,6 +270,8 @@ serve(async (req) => {
           })
           .in('id', [sourceRepoId, targetRepoId]);
 
+        log.success('Push operation completed successfully');
+
         return new Response(
           JSON.stringify({ 
             success: true, 
@@ -249,7 +281,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (error) {
-        console.error('Error during git operation:', error);
+        log.error('Error during git operation:', error);
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -274,7 +306,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in git-operations function:', error);
+    log.error('Error in git-operations function:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
