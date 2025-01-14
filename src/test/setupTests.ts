@@ -1,7 +1,10 @@
 import '@testing-library/jest-dom';
-import { cleanup } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { expect, afterEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { PropsWithChildren } from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost:3000',
@@ -45,8 +48,29 @@ global.Headers = vi.fn() as unknown as typeof Headers;
 global.Request = vi.fn() as unknown as typeof Request;
 global.Response = vi.fn() as unknown as typeof Response;
 
+// Create a wrapper with providers for testing
+export function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return render(
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        {ui}
+      </QueryClientProvider>
+    </BrowserRouter>
+  );
+}
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   localStorage.clear();
 });
+
+export { vi };
