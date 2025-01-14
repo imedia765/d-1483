@@ -13,14 +13,14 @@ export const useRoleAccess = () => {
     queryFn: async () => {
       if (!session?.user) return null;
 
+      console.log('[Role Debug] Fetching roles for user:', session.user.id);
+      
       // Special case for admin
       if (session.user.user_metadata?.member_number === 'TM10003') {
         console.log('[Role Debug] Special access granted for TM10003');
         return 'admin' as UserRole;
       }
 
-      console.log('[Role Debug] Fetching roles for user:', session.user.id);
-      
       const { data: roleData, error } = await supabase
         .from('user_roles')
         .select('role')
