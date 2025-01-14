@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from './auth/useSession';
-import { getRoleFromData } from './auth/roleUtils';
 import { supabase } from "@/integrations/supabase/client";
+import { processRoleData, canAccessTab } from './auth/roleUtils';
 
 export type UserRole = 'member' | 'collector' | 'admin' | null;
 
@@ -13,56 +13,48 @@ export const useRoleAccess = () => {
     queryFn: async () => {
       if (!session?.user) return null;
 
-      // Special case for TM10003
+      // Special case for admin
       if (session.user.user_metadata?.member_number === 'TM10003') {
+        console.log('[Role Debug] Special access granted for TM10003');
         return 'admin' as UserRole;
       }
 
+      console.log('[Role Debug] Fetching roles for user:', session.user.id);
+      
       const { data: roleData, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', session.user.id);
 
-      if (error) throw error;
-
-      if (roleData?.length > 0) {
-        return getRoleFromData(roleData);
+      if (error) {
+        console.error('[Role Debug] Error fetching roles:', error);
+        throw error;
       }
 
-      return 'member' as UserRole;
+      const role = processRoleData(roleData);
+      console.log('[Role Debug] Processed role:', role);
+      return role;
     },
-    enabled: !!session?.user?.id
+    enabled: !!session?.user?.id,
+    staleTime: 60000, // 1 minute
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   const hasRole = (role: UserRole): boolean => {
     return userRole === role;
   };
 
-  const canAccessTab = (tab: string): boolean => {
-    if (!userRole) return false;
-
-    // Special case for TM10003
-    if (session?.user?.user_metadata?.member_number === 'TM10003') {
-      return ['dashboard', 'users', 'collectors', 'audit', 'system', 'financials'].includes(tab);
-    }
-
-    switch (userRole) {
-      case 'admin':
-        return ['dashboard', 'users', 'collectors', 'audit', 'system', 'financials'].includes(tab);
-      case 'collector':
-        return ['dashboard', 'users'].includes(tab);
-      case 'member':
-        return tab === 'dashboard';
-      default:
-        return false;
-    }
+  const checkTabAccess = (tab: string): boolean => {
+    const isTM10003 = session?.user?.user_metadata?.member_number === 'TM10003';
+    return canAccessTab(userRole, tab, isTM10003);
   };
 
   return {
     userRole,
     roleLoading,
     error: roleError,
-    canAccessTab,
-    hasRole
+    hasRole,
+    canAccessTab: checkTabAccess
   };
 };
