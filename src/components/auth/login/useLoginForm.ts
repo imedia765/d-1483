@@ -20,6 +20,17 @@ export const useLoginForm = () => {
       setLoading(true);
       console.log('[Auth Debug] Starting login process for member:', memberNumber);
 
+      // Check network connectivity first
+      try {
+        const response = await fetch('/api/health-check');
+        if (!response.ok) {
+          throw new Error('Network connectivity issue');
+        }
+      } catch (networkError) {
+        console.error('[Auth Debug] Network connectivity error:', networkError);
+        throw new Error('Please check your internet connection and try again.');
+      }
+
       // Clear any existing sessions first
       await clearAuthState();
       console.log('[Auth Debug] Auth state cleared');
@@ -34,6 +45,9 @@ export const useLoginForm = () => {
 
       if (memberError) {
         console.error('[Auth Debug] Member verification error:', memberError);
+        if (memberError.message.includes('Failed to fetch')) {
+          throw new Error('Network connection error. Please check your connection and try again.');
+        }
         throw new Error('Failed to verify member');
       }
 
@@ -57,6 +71,9 @@ export const useLoginForm = () => {
 
       if (signInError) {
         console.error('[Auth Debug] Sign in error:', signInError);
+        if (signInError.message.includes('Failed to fetch')) {
+          throw new Error('Network connection error. Please check your connection and try again.');
+        }
         throw signInError;
       }
 
@@ -88,7 +105,7 @@ export const useLoginForm = () => {
         errorMessage = 'Member number not found or inactive';
       } else if (error.message.includes('Invalid login credentials')) {
         errorMessage = 'Invalid member number';
-      } else if (error.message.includes('Failed to fetch')) {
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
         errorMessage = 'Network error. Please check your connection and try again.';
       } else if (error.message.includes('Member not configured')) {
         errorMessage = error.message;
