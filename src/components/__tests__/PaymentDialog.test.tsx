@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import PaymentDialog from '../members/PaymentDialog';
-import { renderWithProviders } from '@/test/setupTests';
+import { renderWithProviders, vi } from '@/test/setupTests';
 import type { Collector } from '@/types/collector';
 
 describe('PaymentDialog Component', () => {

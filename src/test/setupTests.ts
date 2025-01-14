@@ -1,17 +1,15 @@
 import '@testing-library/jest-dom';
-import { cleanup } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { expect, afterEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { PropsWithChildren } from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost:3000',
   pretendToBeVisual: true,
-  resources: 'usable',
-  features: {
-    FetchExternalResources: ['script'],
-    ProcessExternalResources: ['script'],
-    SkipExternalResources: false
-  }
+  resources: 'usable'
 });
 
 // Create a proper window object with all required properties
@@ -57,7 +55,26 @@ global.window.matchMedia = vi.fn().mockImplementation(query => ({
 global.fetch = vi.fn();
 global.Headers = vi.fn();
 global.Request = vi.fn();
-global.Response = vi.fn();
+global.Response = vi.fn() as unknown as typeof Response;
+
+// Create a wrapper with providers for testing
+export function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return render(
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        {ui}
+      </QueryClientProvider>
+    </BrowserRouter>
+  );
+}
 
 // Cleanup after each test case
 afterEach(() => {
@@ -65,3 +82,5 @@ afterEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
 });
+
+export { vi };
