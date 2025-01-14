@@ -1,36 +1,22 @@
 import '@testing-library/jest-dom';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup } from '@testing-library/react';
 import { expect, afterEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { PropsWithChildren } from 'react';
-import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost:3000',
   pretendToBeVisual: true,
-  resources: 'usable'
+  resources: 'usable',
 });
 
-// Create a proper window object with all required properties
-const window = dom.window;
-const globalAny: any = global;
-
-// Copy all enumerable properties from window to global
-Object.getOwnPropertyNames(window).forEach(property => {
-  if (!(property in globalAny)) {
-    globalAny[property] = window[property];
-  }
-});
-
-global.window = window as unknown as Window & typeof globalThis;
+global.window = dom.window as unknown as Window & typeof globalThis;
 global.document = window.document;
 global.navigator = {
   userAgent: 'node.js',
 } as Navigator;
 
 // Mock localStorage
-global.localStorage = {
+const localStorageMock = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
@@ -39,7 +25,9 @@ global.localStorage = {
   key: vi.fn(),
 };
 
-// Mock window.matchMedia
+global.localStorage = localStorageMock;
+
+// Mock matchMedia
 global.window.matchMedia = vi.fn().mockImplementation(query => ({
   matches: false,
   media: query,
@@ -53,34 +41,12 @@ global.window.matchMedia = vi.fn().mockImplementation(query => ({
 
 // Mock fetch API
 global.fetch = vi.fn();
-global.Headers = vi.fn();
-global.Request = vi.fn();
+global.Headers = vi.fn() as unknown as typeof Headers;
+global.Request = vi.fn() as unknown as typeof Request;
 global.Response = vi.fn() as unknown as typeof Response;
 
-// Create a wrapper with providers for testing
-export function renderWithProviders(ui: React.ReactElement) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  });
-
-  return render(
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        {ui}
-      </QueryClientProvider>
-    </BrowserRouter>
-  );
-}
-
-// Cleanup after each test case
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   localStorage.clear();
 });
-
-export { vi };
