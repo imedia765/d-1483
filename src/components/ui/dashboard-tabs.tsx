@@ -13,7 +13,7 @@ const DashboardTabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex w-full items-center justify-center rounded-lg bg-dashboard-card p-1 text-dashboard-muted overflow-x-auto",
+      "inline-flex w-full items-center justify-center rounded-lg bg-dashboard-card p-1 text-dashboard-muted overflow-x-auto scrollbar-none",
       className
     )}
     {...props}
