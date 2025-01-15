@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import PaymentCard from '../PaymentCard';
-import { renderWithProviders, vi } from '@/test/setupTests';
+import { renderWithProviders } from '@/test/setupTests';
 
 describe('PaymentCard Component', () => {
   const defaultProps = {

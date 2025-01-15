@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from '@tanstack/react-query';
-import { clearAuthState, verifyMember } from './utils/authUtils';
+import { clearAuthState, verifyMember, getAuthCredentials, handleSignInError } from './utils/authUtils';
+import { updateMemberWithAuthId, addMemberRole } from './utils/memberUtils';
 
 export const useLoginForm = () => {
   const [memberNumber, setMemberNumber] = useState('');
@@ -18,97 +19,110 @@ export const useLoginForm = () => {
     
     try {
       setLoading(true);
-      console.log('[Auth Debug] Starting login process for member:', memberNumber);
+      const isMobile = window.innerWidth <= 768;
+      console.log('Starting login process on device type:', isMobile ? 'mobile' : 'desktop');
 
-      // Check network connectivity first
-      try {
-        const response = await fetch('/api/health-check');
-        if (!response.ok) {
-          throw new Error('Network connectivity issue');
-        }
-      } catch (networkError) {
-        console.error('[Auth Debug] Network connectivity error:', networkError);
-        throw new Error('Please check your internet connection and try again.');
-      }
-
-      // Clear any existing sessions first
-      await clearAuthState();
-      console.log('[Auth Debug] Auth state cleared');
-
-      // Verify member exists and get their email
-      const { data: member, error: memberError } = await supabase
-        .from('members')
-        .select('id, email, status, auth_user_id')
-        .eq('member_number', memberNumber.trim())
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (memberError) {
-        console.error('[Auth Debug] Member verification error:', memberError);
-        if (memberError.message.includes('Failed to fetch')) {
-          throw new Error('Network connection error. Please check your connection and try again.');
-        }
-        throw new Error('Failed to verify member');
-      }
-
-      if (!member) {
-        console.log('[Auth Debug] Member not found or inactive:', memberNumber);
-        throw new Error('Member not found or inactive');
-      }
-
-      if (!member.auth_user_id || !member.email) {
-        console.error('[Auth Debug] Member not configured for login:', member);
-        throw new Error('Member not configured for login. Please contact support.');
-      }
-
-      console.log('[Auth Debug] Member verified:', { id: member.id, email: member.email });
-
-      // Attempt to sign in with email and member number as password
+      // Skip clearing auth state on login attempt
+      const member = await verifyMember(memberNumber);
+      const { email, password } = getAuthCredentials(memberNumber);
+      
+      console.log('Attempting sign in with:', { email });
+      
+      // Try to sign in
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: member.email,
-        password: memberNumber,
+        email,
+        password,
       });
 
-      if (signInError) {
-        console.error('[Auth Debug] Sign in error:', signInError);
-        if (signInError.message.includes('Failed to fetch')) {
-          throw new Error('Network connection error. Please check your connection and try again.');
+      // If sign in fails due to invalid credentials, try to sign up
+      if (signInError && signInError.message.includes('Invalid login credentials')) {
+        console.log('Sign in failed, attempting signup');
+        
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              member_number: memberNumber,
+            }
+          }
+        });
+
+        if (signUpError) {
+          console.error('Signup error:', signUpError);
+          throw signUpError;
         }
-        throw signInError;
+
+        if (signUpData.user) {
+          await updateMemberWithAuthId(member.id, signUpData.user.id);
+          await addMemberRole(signUpData.user.id);
+
+          console.log('Member updated and role assigned, attempting final sign in');
+          
+          // Final sign in attempt after successful signup
+          const { data: finalSignInData, error: finalSignInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (finalSignInError) {
+            console.error('Final sign in error:', finalSignInError);
+            throw finalSignInError;
+          }
+
+          if (!finalSignInData?.session) {
+            throw new Error('Failed to establish session after signup');
+          }
+        }
+      } else if (signInError) {
+        await handleSignInError(signInError, email, password);
       }
 
-      if (!signInData.session) {
-        console.error('[Auth Debug] No session established');
+      // Clear any existing queries before proceeding
+      await queryClient.cancelQueries();
+      await queryClient.clear();
+
+      // Verify session is established
+      console.log('Verifying session...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session verification error:', sessionError);
+        throw sessionError;
+      }
+
+      if (!session) {
+        console.error('No session established');
         throw new Error('Failed to establish session');
       }
 
-      console.log('[Auth Debug] Session established:', signInData.session);
-
-      // Clear any cached data
-      await queryClient.cancelQueries();
-      await queryClient.clear();
+      console.log('Session established successfully');
+      await queryClient.invalidateQueries();
 
       toast({
         title: "Login successful",
         description: "Welcome back!",
       });
 
-      setLoading(false);
-      navigate('/', { replace: true });
-      
+      // Use replace to prevent back button issues
+      if (isMobile) {
+        window.location.href = '/';
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (error: any) {
-      console.error('[Auth Debug] Login error:', error);
+      console.error('Login error:', error);
       
       let errorMessage = 'An unexpected error occurred';
       
       if (error.message.includes('Member not found')) {
         errorMessage = 'Member number not found or inactive';
       } else if (error.message.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid member number';
-      } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (error.message.includes('Member not configured')) {
-        errorMessage = error.message;
+        errorMessage = 'Invalid member number. Please try again.';
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = 'Please verify your email before logging in';
+      } else if (error.message.includes('refresh_token_not_found')) {
+        errorMessage = 'Session expired. Please try logging in again.';
       }
       
       toast({
@@ -116,7 +130,7 @@ export const useLoginForm = () => {
         description: errorMessage,
         variant: "destructive",
       });
-      
+    } finally {
       setLoading(false);
     }
   };

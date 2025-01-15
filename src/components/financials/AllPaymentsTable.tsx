@@ -26,6 +26,8 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
   const { data: paymentsData, isLoading, error } = useQuery({
     queryKey: ['payment-requests'],
     queryFn: async () => {
+      console.log('Fetching payment requests...');
+      
       const { data, error, count } = await supabase
         .from('payment_requests')
         .select(`
@@ -36,28 +38,39 @@ const AllPaymentsTable = ({ showHistory = false }: AllPaymentsTableProps) => {
             phone,
             email
           ),
-          collectors:members_collectors!payment_requests_collector_id_fkey(
+          collector:members_collectors!payment_requests_collector_id_fkey(
             name,
             phone,
             email
           )
-        `, { count: 'exact' })
-        .order('created_at', { ascending: false });
+        `, { count: 'exact' });
 
       if (error) {
         console.error('Error fetching payments:', error);
         throw error;
       }
 
-      // Group payments by collector name, ensuring we get the name from the joined data
+      console.log('Raw payments data:', data);
+
+      // Group payments by collector name, with better error handling
       const groupedPayments = data?.reduce((acc, payment) => {
-        const collectorName = payment.collectors?.[0]?.name || 'Unassigned';
+        // Get collector name with proper null checking
+        const collectorName = payment.collector?.name || 'Unassigned';
+        console.log('Processing payment:', {
+          id: payment.id,
+          collectorId: payment.collector_id,
+          collectorData: payment.collector,
+          collectorName
+        });
+
         if (!acc[collectorName]) {
           acc[collectorName] = [];
         }
         acc[collectorName].push(payment);
         return acc;
       }, {} as Record<string, any[]>);
+
+      console.log('Grouped payments:', groupedPayments);
 
       return { groupedPayments, count };
     },

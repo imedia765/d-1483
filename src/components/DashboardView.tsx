@@ -5,11 +5,21 @@ import MemberProfileCard from './MemberProfileCard';
 import SystemAnnouncements from './SystemAnnouncements';
 import PaymentDialog from './members/PaymentDialog';
 import PaymentHistoryTable from './PaymentHistoryTable';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 
 const DashboardView = () => {
   const { toast } = useToast();
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const { data: memberProfile, isError } = useQuery({
     queryKey: ['memberProfile'],
@@ -63,7 +73,17 @@ const DashboardView = () => {
   return (
     <div className="w-full px-2 sm:px-0 pt-[calc(6rem+1px)] lg:pt-[calc(8rem+1px)]">
       <header className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-medium mb-2 text-dashboard-softBlue">Dashboard</h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+          <h1 className="text-2xl sm:text-3xl font-medium mb-2 sm:mb-0 text-dashboard-softBlue">Dashboard</h1>
+          <div className="flex flex-col items-end">
+            <p className="text-dashboard-accent1 font-medium">
+              {format(currentTime, 'EEEE, MMMM do yyyy')}
+            </p>
+            <p className="text-dashboard-accent2 text-lg">
+              {format(currentTime, 'h:mm:ss a')}
+            </p>
+          </div>
+        </div>
         <p className="text-dashboard-text">Welcome back!</p>
       </header>
       

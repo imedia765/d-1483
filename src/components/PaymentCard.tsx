@@ -1,6 +1,8 @@
 import React from 'react';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
+import { PaymentDueDate } from './financials/payment-card/PaymentDueDate';
+import { is_payment_overdue } from '@/lib/utils';
 
 interface PaymentCardProps {
   annualPaymentStatus: 'pending' | 'completed';
@@ -34,6 +36,48 @@ const PaymentCard: React.FC<PaymentCardProps> = ({
     }).format(amount);
   };
 
+  const getAnnualPaymentStatusInfo = () => {
+    if (annualPaymentStatus === 'completed') {
+      return {
+        message: 'Annual Payment Completed',
+        isOverdue: false,
+        isPaid: true
+      };
+    }
+    
+    if (annualPaymentDueDate) {
+      const isOverdue = is_payment_overdue(new Date(annualPaymentDueDate));
+      return {
+        message: isOverdue ? 'Annual Payment Overdue!' : 'Annual Payment Due',
+        isOverdue,
+        isPaid: false
+      };
+    }
+    
+    return null;
+  };
+
+  const getEmergencyPaymentStatusInfo = () => {
+    if (emergencyCollectionStatus === 'completed') {
+      return {
+        message: 'Emergency Payment Completed',
+        isOverdue: false,
+        isPaid: true
+      };
+    }
+    
+    if (emergencyCollectionDueDate) {
+      const isOverdue = is_payment_overdue(new Date(emergencyCollectionDueDate));
+      return {
+        message: isOverdue ? 'Emergency Payment Overdue!' : 'Emergency Payment Due',
+        isOverdue,
+        isPaid: false
+      };
+    }
+    
+    return null;
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div>
@@ -50,9 +94,11 @@ const PaymentCard: React.FC<PaymentCardProps> = ({
             Last Payment: {formatCurrency(lastAnnualPaymentAmount)}
           </p>
         )}
-        <p className="text-sm">
-          Due Date: {annualPaymentDueDate || 'No due date'}
-        </p>
+        <PaymentDueDate
+          dueDate={annualPaymentDueDate}
+          color="text-dashboard-text"
+          statusInfo={getAnnualPaymentStatusInfo()}
+        />
       </div>
 
       <div>
@@ -69,9 +115,11 @@ const PaymentCard: React.FC<PaymentCardProps> = ({
             Last Payment: {formatCurrency(lastEmergencyPaymentAmount)}
           </p>
         )}
-        <p className="text-sm">
-          Due Date: {emergencyCollectionDueDate || 'No due date'}
-        </p>
+        <PaymentDueDate
+          dueDate={emergencyCollectionDueDate}
+          color="text-dashboard-text"
+          statusInfo={getEmergencyPaymentStatusInfo()}
+        />
       </div>
     </Card>
   );

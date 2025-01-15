@@ -35,6 +35,9 @@ export const PaymentTableRow = ({ payment, onApprove, onReject, onDelete }: Paym
       <TableCell className="text-dashboard-text">
         {formatDate(payment.created_at)}
       </TableCell>
+      <TableCell className="text-dashboard-accent2 font-mono">
+        {payment.payment_number || '-'}
+      </TableCell>
       <TableCell className="text-white font-medium">
         {payment.members?.full_name}
       </TableCell>

@@ -6,6 +6,7 @@ import PaymentStatistics from './financials/PaymentStatistics';
 import CollectorsSummary from './financials/CollectorsSummary';
 import AllPaymentsTable from './financials/AllPaymentsTable';
 import CollectorsList from './CollectorsList';
+import MemberStatsView from './members/MemberStatsView';
 import { Card } from "@/components/ui/card";
 import { Wallet, Users, Receipt, PoundSterling } from "lucide-react";
 import TotalCount from './TotalCount';
@@ -92,7 +93,6 @@ const CollectorFinancialsView = () => {
 
   const handlePrint = () => {
     console.log('Print functionality triggered');
-    // Add print logic here if needed
   };
 
   return (
@@ -156,40 +156,62 @@ const CollectorFinancialsView = () => {
 
       <Card className="glass-card">
         <Tabs defaultValue="overview" className="p-2 sm:p-3 md:p-4" onValueChange={setActiveTab}>
-          <TabsList className="flex flex-col sm:flex-row w-full gap-1 sm:gap-2 bg-white/5 p-1">
+          <TabsList className="grid w-full gap-1 bg-dashboard-card rounded-lg p-1 border border-dashboard-cardBorder flex-wrap sm:flex-nowrap">
             <TabsTrigger 
-              className="w-full sm:w-auto text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2" 
+              className="w-full sm:w-auto min-w-[120px] text-xs sm:text-sm px-3 py-2 rounded-md transition-all duration-200
+                data-[state=active]:bg-dashboard-accent1 data-[state=active]:text-white
+                data-[state=inactive]:text-dashboard-text data-[state=inactive]:hover:bg-dashboard-cardHover
+                data-[state=inactive]:hover:text-white" 
               value="overview"
             >
               Payment Overview
             </TabsTrigger>
             <TabsTrigger 
-              className="w-full sm:w-auto text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2" 
+              className="w-full sm:w-auto min-w-[120px] text-xs sm:text-sm px-3 py-2 rounded-md transition-all duration-200
+                data-[state=active]:bg-dashboard-accent1 data-[state=active]:text-white
+                data-[state=inactive]:text-dashboard-text data-[state=inactive]:hover:bg-dashboard-cardHover
+                data-[state=inactive]:hover:text-white" 
               value="collectors"
             >
               Collectors Overview
             </TabsTrigger>
             <TabsTrigger 
-              className="w-full sm:w-auto text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2" 
+              className="w-full sm:w-auto min-w-[120px] text-xs sm:text-sm px-3 py-2 rounded-md transition-all duration-200
+                data-[state=active]:bg-dashboard-accent1 data-[state=active]:text-white
+                data-[state=inactive]:text-dashboard-text data-[state=inactive]:hover:bg-dashboard-cardHover
+                data-[state=inactive]:hover:text-white" 
               value="payments"
             >
               All Payments
             </TabsTrigger>
+            <TabsTrigger 
+              className="w-full sm:w-auto min-w-[120px] text-xs sm:text-sm px-3 py-2 rounded-md transition-all duration-200
+                data-[state=active]:bg-dashboard-accent1 data-[state=active]:text-white
+                data-[state=inactive]:text-dashboard-text data-[state=inactive]:hover:bg-dashboard-cardHover
+                data-[state=inactive]:hover:text-white" 
+              value="memberstats"
+            >
+              Member Stats
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="mt-2 sm:mt-3 md:mt-4">
+          <TabsContent value="overview" className="mt-4">
             <PaymentStatistics />
           </TabsContent>
 
-          <TabsContent value="collectors" className="mt-2 sm:mt-3 md:mt-4">
-            <div className="space-y-3 sm:space-y-4 md:space-y-6">
+          <TabsContent value="collectors" className="mt-4">
+            <div className="space-y-4">
               <CollectorsList />
               <CollectorsSummary />
             </div>
           </TabsContent>
 
-          <TabsContent value="payments" className="mt-2 sm:mt-3 md:mt-4">
+          <TabsContent value="payments" className="mt-4">
             <AllPaymentsTable showHistory={true} />
+          </TabsContent>
+
+          <TabsContent value="memberstats" className="mt-4">
+            <MemberStatsView />
           </TabsContent>
         </Tabs>
       </Card>

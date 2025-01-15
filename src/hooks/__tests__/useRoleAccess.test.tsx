@@ -65,4 +65,39 @@ describe('useRoleAccess Hook', () => {
 
     expect(result.current.canAccessTab('system')).toBe(false);
   });
+
+  it('handles session errors', async () => {
+    (supabase.auth.getSession as any).mockRejectedValue(new Error('Session error'));
+
+    const { result } = renderHook(() => useRoleAccess(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.roleLoading).toBe(false);
+    });
+
+    expect(result.current.userRole).toBeNull();
+  });
+
+  it('updates role when session changes', async () => {
+    let sessionCallback: any;
+    (supabase.auth.onAuthStateChange as any).mockImplementation((callback) => {
+      sessionCallback = callback;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    const { result } = renderHook(() => useRoleAccess(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.roleLoading).toBe(false);
+    });
+
+    // Simulate session change
+    await sessionCallback('SIGNED_IN', {
+      user: { id: '123', user_metadata: { member_number: 'TM10003' } }
+    });
+
+    await waitFor(() => {
+      expect(result.current.userRole).toBe('admin');
+    });
+  });
 });

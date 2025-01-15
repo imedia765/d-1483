@@ -29,7 +29,7 @@ const MembersListHeader = ({
           <Button
             variant="outline"
             size="sm"
-            className="w-full sm:w-auto whitespace-nowrap"
+            className="w-full sm:w-auto whitespace-nowrap bg-dashboard-accent1 hover:bg-dashboard-accent1/80 text-white border-dashboard-accent2"
           >
             <Download className="mr-2 h-4 w-4" />
             Export Members

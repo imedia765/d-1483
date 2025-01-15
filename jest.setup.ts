@@ -1,32 +1,18 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
 import { expect, afterEach, vi } from 'vitest';
+
+// Setup a basic DOM environment for tests
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost:3000',
   pretendToBeVisual: true,
-  resources: 'usable',
-  features: {
-    FetchExternalResources: ['script'],
-    ProcessExternalResources: ['script'],
-    SkipExternalResources: false
-  }
+  resources: 'usable'
 });
 
-// Create a proper window object with all required properties
-const window = dom.window;
-const globalAny: any = global;
-
-// Copy all enumerable properties from window to global
-Object.getOwnPropertyNames(window).forEach(property => {
-  if (!(property in globalAny)) {
-    globalAny[property] = window[property];
-  }
-});
-
-global.window = window as unknown as Window & typeof globalThis;
-global.document = window.document;
+global.window = dom.window;
+global.document = dom.window.document;
 global.navigator = {
   userAgent: 'node.js',
 } as Navigator;
@@ -52,12 +38,6 @@ global.window.matchMedia = vi.fn().mockImplementation(query => ({
   removeEventListener: vi.fn(),
   dispatchEvent: vi.fn(),
 }));
-
-// Mock fetch API
-global.fetch = vi.fn();
-global.Headers = vi.fn();
-global.Request = vi.fn();
-global.Response = vi.fn();
 
 // Cleanup after each test case
 afterEach(() => {

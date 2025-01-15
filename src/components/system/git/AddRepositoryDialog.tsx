@@ -27,7 +27,7 @@ export const AddRepositoryDialog = ({
     try {
       const formData = new FormData(event.currentTarget);
       const name = formData.get('name') as string;
-      const sourceUrl = formData.get('repo_url') as string;
+      const repoUrl = formData.get('repo_url') as string;
       const branch = formData.get('branch') as string;
 
       const { error } = await supabase
@@ -35,7 +35,7 @@ export const AddRepositoryDialog = ({
         .insert([
           { 
             name,
-            source_url: sourceUrl,
+            source_url: repoUrl,
             branch: branch || 'main',
             is_master: false,
             status: 'active'

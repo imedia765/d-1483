@@ -9,6 +9,7 @@ import { Member } from "@/types/member";
 import { useToast } from "@/components/ui/use-toast";
 import MembersListHeader from './members/MembersListHeader';
 import MembersListContent from './members/MembersListContent';
+import { DashboardTabs, DashboardTabsList, DashboardTabsTrigger, DashboardTabsContent } from "@/components/ui/dashboard-tabs";
 
 interface MembersListProps {
   searchTerm: string;
@@ -124,18 +125,54 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
         members={members}
       />
 
-      <div className="overflow-hidden">
-        <MembersListContent
-          members={members}
-          isLoading={isLoading}
-          userRole={userRole}
-          onPaymentClick={handlePaymentClick}
-          onEditClick={handleEditClick}
-          currentPage={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
-      </div>
+      <DashboardTabs defaultValue="summary" className="w-full">
+        <DashboardTabsList className="w-full grid grid-cols-1 sm:grid-cols-3 gap-0">
+          {userRole === 'collector' && (
+            <>
+              <DashboardTabsTrigger value="summary" className="w-full">
+                Summary
+              </DashboardTabsTrigger>
+              <DashboardTabsTrigger value="payments" className="w-full">
+                Payments
+              </DashboardTabsTrigger>
+            </>
+          )}
+          <DashboardTabsTrigger value="members" className="w-full">
+            Members List
+          </DashboardTabsTrigger>
+        </DashboardTabsList>
+
+        {userRole === 'collector' && collectorInfo && (
+          <>
+            <DashboardTabsContent value="summary">
+              <div className="overflow-hidden">
+                <CollectorPaymentSummary collectorName={collectorInfo.name} />
+              </div>
+            </DashboardTabsContent>
+
+            <DashboardTabsContent value="payments">
+              <div className="overflow-hidden">
+                <CollectorMemberPayments collectorName={collectorInfo.name} />
+              </div>
+            </DashboardTabsContent>
+          </>
+        )}
+
+        <DashboardTabsContent value="members">
+          <div className="overflow-hidden">
+            <MembersListContent
+              members={members}
+              isLoading={isLoading}
+              userRole={userRole}
+              onPaymentClick={handlePaymentClick}
+              onEditClick={handleEditClick}
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </div>
+        </DashboardTabsContent>
+      </DashboardTabs>
 
       {selectedMember && isPaymentDialogOpen && (
         <PaymentDialog
@@ -161,17 +198,6 @@ const MembersList = ({ searchTerm, userRole }: MembersListProps) => {
           }}
           onProfileUpdated={handleProfileUpdated}
         />
-      )}
-
-      {userRole === 'collector' && collectorInfo && (
-        <div className="space-y-4 sm:space-y-6">
-          <div className="overflow-hidden">
-            <CollectorPaymentSummary collectorName={collectorInfo.name} />
-          </div>
-          <div className="overflow-hidden">
-            <CollectorMemberPayments collectorName={collectorInfo.name} />
-          </div>
-        </div>
       )}
     </div>
   );

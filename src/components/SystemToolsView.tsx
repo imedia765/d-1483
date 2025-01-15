@@ -1,4 +1,4 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardTabs, DashboardTabsContent, DashboardTabsList, DashboardTabsTrigger } from "@/components/ui/dashboard-tabs";
 import SystemHealthCheck from "./system/SystemHealthCheck";
 import GitOperationsCard from "./system/GitOperationsCard";
 import RoleManagementCard from "./system/RoleManagementCard";
@@ -13,35 +13,45 @@ const SystemToolsView = () => {
         <p className="text-dashboard-muted">Manage system settings and monitor performance</p>
       </header>
 
-      <Tabs defaultValue="health" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="health">System Health</TabsTrigger>
-          <TabsTrigger value="git">Git Operations</TabsTrigger>
-          <TabsTrigger value="roles">Role Management</TabsTrigger>
-          <TabsTrigger value="manual">User Manual</TabsTrigger>
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-        </TabsList>
+      <DashboardTabs defaultValue="health" className="space-y-4">
+        <DashboardTabsList className="w-full grid grid-cols-5 gap-2 bg-dashboard-card p-1">
+          <DashboardTabsTrigger value="health">
+            System Health
+          </DashboardTabsTrigger>
+          <DashboardTabsTrigger value="git">
+            Git Operations
+          </DashboardTabsTrigger>
+          <DashboardTabsTrigger value="roles">
+            Role Management
+          </DashboardTabsTrigger>
+          <DashboardTabsTrigger value="manual">
+            User Manual
+          </DashboardTabsTrigger>
+          <DashboardTabsTrigger value="announcements">
+            Announcements
+          </DashboardTabsTrigger>
+        </DashboardTabsList>
 
-        <TabsContent value="health" className="space-y-4">
+        <DashboardTabsContent value="health" className="space-y-4">
           <SystemHealthCheck />
-        </TabsContent>
+        </DashboardTabsContent>
 
-        <TabsContent value="git" className="space-y-4">
+        <DashboardTabsContent value="git" className="space-y-4">
           <GitOperationsCard />
-        </TabsContent>
+        </DashboardTabsContent>
 
-        <TabsContent value="roles" className="space-y-4">
+        <DashboardTabsContent value="roles" className="space-y-4">
           <RoleManagementCard />
-        </TabsContent>
+        </DashboardTabsContent>
 
-        <TabsContent value="manual" className="space-y-4">
+        <DashboardTabsContent value="manual" className="space-y-4">
           <UserManual />
-        </TabsContent>
+        </DashboardTabsContent>
 
-        <TabsContent value="announcements" className="space-y-4">
+        <DashboardTabsContent value="announcements" className="space-y-4">
           <AnnouncementsManager />
-        </TabsContent>
-      </Tabs>
+        </DashboardTabsContent>
+      </DashboardTabs>
     </div>
   );
 };
