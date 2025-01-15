@@ -14,20 +14,20 @@ const SystemToolsView = () => {
       </header>
 
       <DashboardTabs defaultValue="health" className="space-y-4">
-        <DashboardTabsList className="w-full grid grid-cols-5 gap-2 bg-dashboard-card p-1">
-          <DashboardTabsTrigger value="health">
+        <DashboardTabsList className="w-full grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-0 bg-dashboard-card p-1 rounded-lg overflow-x-auto scrollbar-none">
+          <DashboardTabsTrigger value="health" className="min-w-[120px]">
             System Health
           </DashboardTabsTrigger>
-          <DashboardTabsTrigger value="git">
+          <DashboardTabsTrigger value="git" className="min-w-[120px]">
             Git Operations
           </DashboardTabsTrigger>
-          <DashboardTabsTrigger value="roles">
+          <DashboardTabsTrigger value="roles" className="min-w-[120px]">
             Role Management
           </DashboardTabsTrigger>
-          <DashboardTabsTrigger value="manual">
+          <DashboardTabsTrigger value="manual" className="min-w-[120px]">
             User Manual
           </DashboardTabsTrigger>
-          <DashboardTabsTrigger value="announcements">
+          <DashboardTabsTrigger value="announcements" className="min-w-[120px]">
             Announcements
           </DashboardTabsTrigger>
         </DashboardTabsList>

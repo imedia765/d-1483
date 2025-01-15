@@ -28,7 +28,7 @@ const DashboardTabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-dashboard-accent1 data-[state=active]:text-white data-[state=active]:shadow hover:bg-dashboard-accent1/10 flex-shrink-0 min-w-[120px]",
+      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-2.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-dashboard-accent1 data-[state=active]:text-white data-[state=active]:shadow hover:bg-dashboard-accent1/10 flex-shrink-0",
       className
     )}
     {...props}
