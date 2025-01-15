@@ -2,7 +2,6 @@ import LoginForm from '@/components/auth/LoginForm';
 import CommitteeUpdate from '@/components/auth/CommitteeUpdate';
 import MembershipExpectations from '@/components/auth/MembershipExpectations';
 import ImportantInformation from '@/components/auth/ImportantInformation';
-import MedicalExaminer from '@/components/auth/MedicalExaminer';
 
 const Login = () => {
   return (
@@ -32,7 +31,6 @@ const Login = () => {
             <CommitteeUpdate />
             <MembershipExpectations />
             <ImportantInformation />
-            <MedicalExaminer />
           </div>
 
           {/* Footer */}
