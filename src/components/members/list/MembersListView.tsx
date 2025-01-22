@@ -26,10 +26,11 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
       console.log('Fetching members with search term:', searchTerm);
       console.log('Collector info:', collectorInfo);
       
-      // First get total count
+      // First get total count of members with notes
       let countQuery = supabase
         .from('members')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .not('admin_note', 'is', null);  // Only count members with notes
       
       if (searchTerm) {
         countQuery = countQuery.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%,collector.ilike.%${searchTerm}%`);
@@ -48,10 +49,11 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
       const safePage = Math.min(page, maxPage);
       const safeOffset = (safePage - 1) * ITEMS_PER_PAGE;
       
-      // Fetch paginated data
+      // Fetch paginated data for members with notes
       let query = supabase
         .from('members')
-        .select('*');
+        .select('*')
+        .not('admin_note', 'is', null);  // Only fetch members with notes
       
       if (searchTerm) {
         query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%,collector.ilike.%${searchTerm}%`);
