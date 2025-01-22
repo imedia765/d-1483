@@ -14,7 +14,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import PaymentDialog from './PaymentDialog';
 import { format } from 'date-fns';
-import { Card } from '@/components/ui/card';
 
 interface MemberCardProps {
   member: Member;
@@ -44,15 +43,13 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
       
       if (error) throw error;
 
-      // Transform the data to match the Collector type
       const collector: Collector = {
         ...collectorData,
-        roles: [], // Initialize with empty array as we'll fetch roles separately
-        enhanced_roles: [], // Initialize with empty array as we'll fetch enhanced roles separately
-        syncStatus: undefined // Optional property
+        roles: [],
+        enhanced_roles: [],
+        syncStatus: undefined
       };
 
-      // Fetch roles if we have the collector's auth_user_id
       if (collectorData.member_number) {
         const { data: memberData } = await supabase
           .from('members')
@@ -68,7 +65,6 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
 
           collector.roles = rolesData?.map(r => r.role) || [];
 
-          // Fetch enhanced roles
           const { data: enhancedRolesData } = await supabase
             .from('enhanced_roles')
             .select('role_name, is_active')
@@ -83,7 +79,6 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
     enabled: !!member.collector
   });
 
-  // Fetch payment history
   const { data: paymentHistory } = useQuery({
     queryKey: ['payment-history', member.id],
     queryFn: async () => {
@@ -99,7 +94,35 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
   });
 
   const handleSaveNote = async () => {
-    // Save note logic here
+    try {
+      const { error } = await supabase
+        .from('members')
+        .update({ admin_note: note })
+        .eq('id', member.id);
+
+      if (error) {
+        console.error('Error saving note:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save note. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Note saved successfully",
+      });
+      setIsNoteDialogOpen(false);
+    } catch (err) {
+      console.error('Error in handleSaveNote:', err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    }
   };
 
   const handlePaymentClick = () => {
@@ -113,6 +136,8 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
     }
     setIsPaymentDialogOpen(true);
   };
+
+  // ... keep existing code (JSX for the component layout)
 
   return (
     <AccordionItem value={member.id} className="border-b border-white/10">
