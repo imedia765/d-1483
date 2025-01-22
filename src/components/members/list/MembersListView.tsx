@@ -1,7 +1,6 @@
-import { Member } from "@/types/member";
+import { useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
 import CollectorMemberPayments from '../CollectorMemberPayments';
 import MembersListContent from './MembersListContent';
 import { DashboardTabs, DashboardTabsList, DashboardTabsTrigger, DashboardTabsContent } from "@/components/ui/dashboard-tabs";
@@ -26,11 +25,10 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
       console.log('Fetching members with search term:', searchTerm);
       console.log('Collector info:', collectorInfo);
       
-      // First get total count of members with notes
+      // First get total count
       let countQuery = supabase
         .from('members')
-        .select('*', { count: 'exact', head: true })
-        .not('admin_note', 'is', null);  // Only count members with notes
+        .select('*', { count: 'exact', head: true });
       
       if (searchTerm) {
         countQuery = countQuery.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%,collector.ilike.%${searchTerm}%`);
@@ -49,11 +47,10 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
       const safePage = Math.min(page, maxPage);
       const safeOffset = (safePage - 1) * ITEMS_PER_PAGE;
       
-      // Fetch paginated data for members with notes
+      // Fetch paginated data
       let query = supabase
         .from('members')
-        .select('*')
-        .not('admin_note', 'is', null);  // Only fetch members with notes
+        .select('*');
       
       if (searchTerm) {
         query = query.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%,collector.ilike.%${searchTerm}%`);
@@ -71,11 +68,34 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
       if (error) throw error;
       
       return {
-        members: data as Member[],
+        members: data,
         totalCount,
         currentPage: safePage
       };
     },
+  });
+
+  // Separate query for members with notes
+  const { data: membersWithNotes } = useQuery({
+    queryKey: ['members-with-notes', searchTerm, userRole],
+    queryFn: async () => {
+      let notesQuery = supabase
+        .from('members')
+        .select('*')
+        .not('admin_note', 'is', null);
+
+      if (searchTerm) {
+        notesQuery = notesQuery.or(`full_name.ilike.%${searchTerm}%,member_number.ilike.%${searchTerm}%,collector.ilike.%${searchTerm}%`);
+      }
+
+      if (userRole === 'collector' && collectorInfo?.name) {
+        notesQuery = notesQuery.eq('collector', collectorInfo.name);
+      }
+
+      const { data } = await notesQuery;
+      return data;
+    },
+    enabled: userRole === 'admin' // Only fetch for admin users
   });
 
   return (
@@ -122,7 +142,7 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
         <DashboardTabsContent value="notes">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {membersData?.members.map(member => (
+              {membersWithNotes?.map(member => (
                 <div key={member.id} className="space-y-4">
                   <div className="bg-dashboard-card p-4 rounded-lg border border-dashboard-cardBorder hover:border-dashboard-accent1 transition-colors">
                     <div className="flex flex-col space-y-2">
@@ -140,7 +160,7 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
                 </div>
               ))}
             </div>
-            {(!membersData?.members.some(member => member.admin_note)) && (
+            {(!membersWithNotes?.some(member => member.admin_note)) && (
               <div className="text-center text-dashboard-muted py-8">
                 No notes available
               </div>
