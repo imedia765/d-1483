@@ -6,6 +6,5 @@ export interface MemberNote {
   note_text: string | null;
   note_type: NoteType;
   created_at: string;
-  created_by: string | null;
   updated_at: string;
 }

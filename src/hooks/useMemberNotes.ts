@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
+import { NoteType } from '@/types/notes';
 
 type Tables = Database['public']['Tables'];
 type MemberNote = Tables['member_notes']['Row'];
@@ -24,7 +25,7 @@ export const useMemberNotes = (memberId: string) => {
   });
 
   const addNote = useMutation({
-    mutationFn: async ({ noteText, noteType }: { noteText: string; noteType: "admin" | "payment" | "general" }) => {
+    mutationFn: async ({ noteText, noteType }: { noteText: string; noteType: NoteType }) => {
       const { data, error } = await supabase
         .from('member_notes')
         .insert([
@@ -32,8 +33,6 @@ export const useMemberNotes = (memberId: string) => {
             member_id: memberId,
             note_text: noteText,
             note_type: noteType,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
           }
         ])
         .select()
