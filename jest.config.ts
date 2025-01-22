@@ -8,8 +8,7 @@ const config: Config.InitialOptions = {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
   setupFilesAfterEnv: [
-    '<rootDir>/jest.setup.ts',
-    '<rootDir>/src/test/setupTests.ts'
+    '<rootDir>/jest.setup.ts'
   ],
   testMatch: [
     '**/__tests__/**/*.+(ts|tsx|js)',
@@ -34,7 +33,6 @@ const config: Config.InitialOptions = {
     '/node_modules/',
     '/src/vite-env.d.ts',
     '/src/main.tsx',
-    '/src/test/',
   ],
   testEnvironmentOptions: {
     customExportConditions: [''],

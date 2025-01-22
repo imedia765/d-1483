@@ -4,14 +4,18 @@ import { LogsTabs } from '@/components/logs/LogsTabs';
 import { AuditLogsList } from '@/components/logs/AuditLogsList';
 import MonitoringLogsList from '@/components/logs/MonitoringLogsList';
 import { DebugConsole } from '@/components/logs/DebugConsole';
-import { LOGS_TABS } from '@/constants/logs';
+import { LOGS_TABS, LogsTabsType } from '@/constants/logs';
 
 const AuditLogsView = () => {
-  const [activeTab, setActiveTab] = useState(LOGS_TABS.AUDIT);
+  const [activeTab, setActiveTab] = useState<LogsTabsType>(LOGS_TABS.AUDIT);
   const [debugLogs] = useState([
     'Debug logging initialized',
     'Real-time subscriptions active'
   ]);
+
+  const handleTabChange = (tab: LogsTabsType) => {
+    setActiveTab(tab);
+  };
 
   return (
     <div className="space-y-6">
@@ -21,7 +25,7 @@ const AuditLogsView = () => {
       />
       <LogsTabs 
         activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+        onTabChange={handleTabChange} 
       />
       {activeTab === LOGS_TABS.AUDIT && <AuditLogsList />}
       {activeTab === LOGS_TABS.MONITORING && <MonitoringLogsList />}

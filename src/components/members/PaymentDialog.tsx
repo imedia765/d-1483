@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Phone, User } from "lucide-react";
+import { Phone, User, AlertCircle } from "lucide-react";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -39,8 +40,21 @@ const PaymentDialog = ({
   const { hasRole } = useRoleAccess();
   const isCollector = hasRole('collector');
 
+  console.log('Payment Dialog - Role check:', { isCollector });
+  console.log('Payment Dialog - Member Info:', { memberId, memberNumber, memberName });
+
   const handleSubmit = async () => {
+    if (!isCollector) {
+      toast({
+        title: "Not Authorized",
+        description: "Only collectors can record payments",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!collectorInfo?.id) {
+      console.error('No collector information available');
       toast({
         title: "Error",
         description: "No collector information available",
@@ -49,7 +63,6 @@ const PaymentDialog = ({
       return;
     }
 
-    // Fixed amount for yearly payment
     const amount = selectedPaymentType === 'yearly' ? 40 : 20;
 
     try {
@@ -58,7 +71,8 @@ const PaymentDialog = ({
         memberNumber,
         paymentType: selectedPaymentType,
         paymentMethod: selectedPaymentMethod,
-        amount
+        amount,
+        collectorId: collectorInfo.id
       });
 
       const { data, error } = await supabase
@@ -85,7 +99,6 @@ const PaymentDialog = ({
       setPaymentSuccess(true);
       setShowSplash(true);
 
-      // Invalidate queries after successful payment
       await queryClient.invalidateQueries({ queryKey: ['payment-requests'] });
       await queryClient.invalidateQueries({ queryKey: ['member-payments'] });
 
@@ -107,61 +120,97 @@ const PaymentDialog = ({
     onClose();
   };
 
+  const renderMemberView = () => (
+    <div className="space-y-4">
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Please contact your collector to make a payment. Your collector's details are shown below.
+        </AlertDescription>
+      </Alert>
+
+      {collectorInfo && (
+        <div className="p-4 bg-blue-50 rounded-lg space-y-3">
+          <h3 className="text-lg font-medium text-blue-900">Your Collector</h3>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-blue-700">
+              <User className="w-4 h-4" />
+              <span>{collectorInfo.name}</span>
+            </div>
+            {collectorInfo.phone && (
+              <div className="flex items-center gap-2 text-blue-700">
+                <Phone className="w-4 h-4" />
+                <span>{collectorInfo.phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="text-base sm:text-lg font-semibold text-dashboard-highlight">
+        Payment Amounts:
+        <ul className="mt-2 text-base font-normal">
+          <li>Yearly Payment: £40.00</li>
+          <li>Emergency Collection: £20.00</li>
+        </ul>
+      </div>
+    </div>
+  );
+
+  const renderCollectorView = () => (
+    <div className="space-y-4 sm:space-y-6">
+      {collectorInfo && (
+        <div className="p-4 bg-blue-50 rounded-lg space-y-3">
+          <h3 className="text-lg font-medium text-blue-900">Recording Payment For</h3>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-blue-700">
+              <User className="w-4 h-4" />
+              <span>{memberName}</span>
+            </div>
+            <div className="text-sm text-blue-600">
+              Member Number: {memberNumber}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <PaymentTypeSelector
+        selectedPaymentType={selectedPaymentType}
+        onPaymentTypeChange={setSelectedPaymentType}
+      />
+
+      <PaymentMethodSelector
+        paymentMethod={selectedPaymentMethod}
+        onPaymentMethodChange={setSelectedPaymentMethod}
+      />
+
+      {selectedPaymentMethod === 'bank_transfer' && (
+        <BankDetails memberNumber={memberNumber} />
+      )}
+
+      <div className="text-base sm:text-lg font-semibold text-dashboard-highlight">
+        Amount: £{selectedPaymentType === 'yearly' ? '40.00' : '20.00'}
+      </div>
+
+      <Button 
+        onClick={handleSubmit}
+        className="w-full bg-dashboard-accent1 hover:bg-dashboard-accent1/90"
+      >
+        Record Payment
+      </Button>
+    </div>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-dashboard-card border-white/10 w-[95%] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl sm:text-2xl font-semibold text-dashboard-highlight">
-            Make Payment
+            {isCollector ? 'Record Payment' : 'Payment Information'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 sm:space-y-6">
-          {/* Collector Information */}
-          {collectorInfo && (
-            <div className="p-4 bg-blue-50 rounded-lg space-y-3">
-              <h3 className="text-lg font-medium text-blue-900">Your Collector</h3>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-blue-700">
-                  <User className="w-4 h-4" />
-                  <span>{collectorInfo.name}</span>
-                </div>
-                {collectorInfo.phone && (
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <Phone className="w-4 h-4" />
-                    <span>{collectorInfo.phone}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <PaymentTypeSelector
-            selectedPaymentType={selectedPaymentType}
-            onPaymentTypeChange={setSelectedPaymentType}
-          />
-
-          <PaymentMethodSelector
-            paymentMethod={selectedPaymentMethod}
-            onPaymentMethodChange={setSelectedPaymentMethod}
-          />
-
-          {selectedPaymentMethod === 'bank_transfer' && (
-            <BankDetails memberNumber={memberNumber} />
-          )}
-
-          <div className="text-base sm:text-lg font-semibold text-dashboard-highlight">
-            Amount: £{selectedPaymentType === 'yearly' ? '40.00' : '20.00'}
-          </div>
-
-          <Button 
-            onClick={handleSubmit}
-            className="w-full bg-dashboard-accent1 hover:bg-dashboard-accent1/90"
-            disabled={!isCollector}
-          >
-            {isCollector ? 'Record Payment' : 'Please Contact Your Collector'}
-          </Button>
-        </div>
+        {isCollector ? renderCollectorView() : renderMemberView()}
 
         {showSplash && (
           <PaymentConfirmationSplash

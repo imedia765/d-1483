@@ -167,7 +167,7 @@ const CollectorMembers = ({ collectorName }: { collectorName: string }) => {
             key={member.id}
             className="bg-dashboard-card p-4 rounded-lg border border-dashboard-cardBorder hover:border-dashboard-cardBorderHover hover:bg-dashboard-cardHover transition-all duration-300"
           >
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-start">
               <div>
                 <p className="font-medium text-dashboard-highlight">{member.full_name}</p>
                 <p className="text-sm text-dashboard-accent2">
@@ -180,6 +180,12 @@ const CollectorMembers = ({ collectorName }: { collectorName: string }) => {
                 }`}>
                   {member.status || 'pending'}
                 </span>
+                {member.admin_note && (
+                  <div className="mt-2 p-2 bg-dashboard-cardHover rounded-md">
+                    <p className="text-sm text-dashboard-muted">Note:</p>
+                    <p className="text-sm text-dashboard-text">{member.admin_note}</p>
+                  </div>
+                )}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
