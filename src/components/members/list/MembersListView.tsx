@@ -7,6 +7,7 @@ import MembersListContent from './MembersListContent';
 import { DashboardTabs, DashboardTabsList, DashboardTabsTrigger, DashboardTabsContent } from "@/components/ui/dashboard-tabs";
 import CollectorPaymentSummary from '@/components/CollectorPaymentSummary';
 import RoleBasedRenderer from '@/components/RoleBasedRenderer';
+import NotesList from '../notes/NotesList';
 
 interface MembersListViewProps {
   searchTerm: string;
@@ -119,27 +120,23 @@ const MembersListView = ({ searchTerm, userRole, collectorInfo }: MembersListVie
         <DashboardTabsContent value="notes">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {membersData?.members
-                .filter(member => member.admin_note)
-                .map(member => (
-                  <div 
-                    key={member.id}
-                    className="bg-dashboard-card p-4 rounded-lg border border-dashboard-cardBorder hover:border-dashboard-accent1 transition-colors"
-                  >
+              {membersData?.members.map(member => (
+                <div key={member.id} className="space-y-4">
+                  <div className="bg-dashboard-card p-4 rounded-lg border border-dashboard-cardBorder hover:border-dashboard-accent1 transition-colors">
                     <div className="flex flex-col space-y-2">
                       <div className="flex justify-between items-start border-b border-dashboard-cardBorder pb-2">
-                        <span className="text-sm font-medium text-dashboard-muted">
-                          Member #: {member.member_number}
+                        <span className="text-sm font-medium text-dashboard-accent1">
+                          {member.full_name}
+                        </span>
+                        <span className="text-xs text-dashboard-muted">
+                          #{member.member_number}
                         </span>
                       </div>
-                      <div className="bg-dashboard-cardHover p-3 rounded-md">
-                        <p className="text-sm text-dashboard-text whitespace-pre-wrap">
-                          {member.admin_note}
-                        </p>
-                      </div>
+                      <NotesList memberId={member.id} />
                     </div>
                   </div>
-                ))}
+                </div>
+              ))}
             </div>
             {(!membersData?.members.some(member => member.admin_note)) && (
               <div className="text-center text-dashboard-muted py-8">

@@ -9,11 +9,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { useRoleAccess } from '@/hooks/useRoleAccess';
 import PaymentDialog from './PaymentDialog';
 import { format } from 'date-fns';
+import NotesDialog from './notes/NotesDialog';
+import NotesList from './notes/NotesList';
 
 interface MemberCardProps {
   member: Member;
@@ -24,7 +25,6 @@ interface MemberCardProps {
 
 const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCardProps) => {
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
-  const [note, setNote] = useState(member.admin_note || '');
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const { toast } = useToast();
   const { hasRole } = useRoleAccess();
@@ -93,38 +93,6 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
     }
   });
 
-  const handleSaveNote = async () => {
-    try {
-      const { error } = await supabase
-        .from('members')
-        .update({ admin_note: note })
-        .eq('id', member.id);
-
-      if (error) {
-        console.error('Error saving note:', error);
-        toast({
-          title: "Error",
-          description: "Failed to save note. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      toast({
-        title: "Success",
-        description: "Note saved successfully",
-      });
-      setIsNoteDialogOpen(false);
-    } catch (err) {
-      console.error('Error in handleSaveNote:', err);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive"
-      });
-    }
-  };
-
   const handlePaymentClick = () => {
     if (!isCollector) {
       toast({
@@ -136,8 +104,6 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
     }
     setIsPaymentDialogOpen(true);
   };
-
-  // ... keep existing code (JSX for the component layout)
 
   return (
     <AccordionItem value={member.id} className="border-b border-white/10">
@@ -206,27 +172,19 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
             </div>
           </div>
 
+          {/* Notes Section */}
           {userRole === 'admin' && (
-            <div>
-              <Button onClick={() => setIsNoteDialogOpen(true)} 
-                     className="bg-dashboard-card hover:bg-dashboard-cardHover text-dashboard-text">
-                Add Note
-              </Button>
-              <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
-                <DialogContent className="bg-dashboard-card border-dashboard-cardBorder">
-                  <DialogHeader>
-                    <DialogTitle className="text-dashboard-accent1">Add Admin Note</DialogTitle>
-                  </DialogHeader>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    className="w-full h-24 bg-dashboard-card border border-dashboard-cardBorder rounded-md p-2 text-dashboard-text"
-                  />
-                  <Button onClick={handleSaveNote} className="bg-dashboard-accent1 hover:bg-dashboard-accent1/80">
-                    Save Note
-                  </Button>
-                </DialogContent>
-              </Dialog>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-medium text-dashboard-accent1">Notes</h4>
+                <Button 
+                  onClick={() => setIsNoteDialogOpen(true)}
+                  className="bg-dashboard-accent1 hover:bg-dashboard-accent1/80"
+                >
+                  Add Note
+                </Button>
+              </div>
+              <NotesList memberId={member.id} />
             </div>
           )}
 
@@ -237,6 +195,12 @@ const MemberCard = ({ member, userRole, onPaymentClick, onEditClick }: MemberCar
             memberNumber={member.member_number}
             memberName={member.full_name}
             collectorInfo={collectorInfo}
+          />
+
+          <NotesDialog
+            isOpen={isNoteDialogOpen}
+            onClose={() => setIsNoteDialogOpen(false)}
+            memberId={member.id}
           />
         </div>
       </AccordionContent>

@@ -1,15 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import { NoteType } from '@/types/notes';
-
-type Tables = Database['public']['Tables'];
-type MemberNote = Tables['member_notes']['Row'];
 
 export const useMemberNotes = (memberId: string) => {
   const queryClient = useQueryClient();
 
-  const { data: notes, isLoading } = useQuery<MemberNote[]>({
+  const { data: notes, isLoading } = useQuery({
     queryKey: ['member-notes', memberId],
     queryFn: async () => {
       const { data, error } = await supabase
